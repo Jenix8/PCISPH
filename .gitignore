@@ -1,0 +1,9 @@
+.vs/
+x64/
+PCISPH/x64/
+include/
+lib/
+src/
+PCISPH/stb_image.cpp
+*.mp4
+*.gif

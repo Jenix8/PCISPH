@@ -1,0 +1,42 @@
+/////////////////
+		//// get delta
+		//auto gradW = [](glm::vec3 vdiff)
+		//{
+		//	glm::vec3 res = glm::vec3(0, 0, 0);
+		//	float C = 1 / (PI * h * h * h);
+		//	float r1 = glm::length(vdiff);
+		//	float q = r1 / h;
+		//	if ((r1 > 1e-8f) && (q <= 2.f))
+		//	{
+		//		glm::vec3 gradq = vdiff / r1;
+		//		gradq /= h;
+		//		if (q >= 1.0f)
+		//		{
+		//			res = C * (9 * q * q / 4 - 3 * q) * gradq;
+		//		}
+		//		else
+		//		{
+		//			res = -C * (3 * (2 - q) * (2 - q) / 4) * gradq;
+		//		}
+		//	}
+		//	return res;
+		//};
+		//
+		//glm::vec3 sumGrad = glm::vec3(0, 0, 0);
+		//float A = 0, B = 0;
+		//for (int n = 0; n < nParticlesList[23134].size(); n++)
+		//{
+		//	glm::vec3 gW = gradW(x[23134] - x[nParticlesList[23134][n]]);
+		//	sumGrad += gW;
+		//	B += glm::dot(gW, gW);
+		//}
+		//A = glm::dot(sumGrad, sumGrad);
+		//
+		//float beta = deltaTime * deltaTime * m * m * 2 / (rhoZero * rhoZero);
+		//delta = 1 / (beta * (A + B));
+		//printFlt(delta);
+		//
+		///////////////////
+
+		# interval 3*h/4 -> 1.5
+		# interval h -> 1.3
