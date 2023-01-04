@@ -165,7 +165,7 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 				//	pos.push_back(glm::vec3(dx, dy, dz));
 				//	isW.push_back(true);
 				//}
-				else if (dy <= 0.5f && dx <= -0.5f)
+				else if (dy <= 0.5f && dx <= -0.6f)
 				{
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(true);
@@ -212,6 +212,7 @@ glm::vec3 CalcPressForce(int i, unsigned int psID, PointSet const& ps, std::vect
 {
 	glm::vec3 totalFpi(0);
 
+	#pragma omp parallel
 	for (unsigned int j = 0; j < ps.n_neighbors(psID, i); j++)
 	{
 		int n = ps.neighbor(psID, i, j);

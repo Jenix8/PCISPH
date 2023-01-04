@@ -58,6 +58,8 @@ glm::vec3 Fg = m * g;
 // particles
 std::vector<glm::vec3> x;			// position
 std::vector<std::array<Real, 3>> Nx;	// positions for neighbor search
+glm::vec3 waters[20000];				// for rendering
+glm::vec3 boundaries[80000];			// for rendering
 std::vector<int> water;				// waterIdx
 std::vector<glm::vec3> v;			// velocity
 std::vector<bool> isWat;			// true: water, false: boundary
@@ -105,6 +107,7 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_POINT_SPRITE);
+	glEnable(GL_POINT_SMOOTH);
 
 	Shader sphereShader("color.vs", "color.fs");
 	Shader pointShader("Point.vs", "Point.fs");
@@ -133,7 +136,7 @@ int main() {
 	glBindBuffer(GL_ARRAY_BUFFER, pVBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(pVertex), pVertex, GL_STATIC_DRAW);
 	glBindVertexArray(pVAO);
-
+	
 	// position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -161,11 +164,17 @@ int main() {
 	int pCount = water.size();
 	printf("pCount: %d\n", pCount);
 
-	NeighborhoodSearch nsearch(2 * h);
-
+	int wCnt = 0, bCnt = 0;
 	for (int i = 0; i < allPtc; i++)
+	{
+		if (isWat[i]) waters[wCnt++] = x[i];
+		else boundaries[bCnt++] = x[i];
+
 		for (int j = 0; j < 3; j++)
 			Nx[i][j] = x[i][j];
+	}
+
+	NeighborhoodSearch nsearch(2 * h);
 
 	unsigned int psID = nsearch.add_point_set(Nx.front().data(), Nx.size());
 	nsearch.z_sort();
@@ -173,6 +182,18 @@ int main() {
 	PointSet const& ps = nsearch.point_set(psID);
 
 	glPointSize(10.0f);
+
+	unsigned int winstVBO;
+	glGenBuffers(1, &winstVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, winstVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * wCnt, &waters[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	unsigned int binstVBO;
+	glGenBuffers(1, &binstVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, binstVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * bCnt, &boundaries[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -244,6 +265,7 @@ int main() {
 				{
 					int i = water[pIdx];
 					// compute Fp
+					#pragma omp parallel
 					Fp[i] -= CalcPressForce(i, psID, ps, px, p, d, isWat);
 				}
 			}
@@ -262,51 +284,18 @@ int main() {
 		// 3. RENDERING
 
 		// activate shader
-		sphereShader.use();
-		sphereShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
-		sphereShader.setVec3("lightPos", lightPos);
-		sphereShader.setVec3("viewPos", camera.Position);
-		
-		// create transformations
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
-		glm::mat4 view = camera.GetViewMatrix();
-		sphereShader.setMat4("projection", projection);
-		sphereShader.setMat4("view", view);
-		glBindVertexArray(sphereVAO);
-		
-		
-		#pragma omp parallel default(shared)
-		{
-			//#pragma omp for schedule(static)
-			for (int i = 0; i < allPtc; i++)
-			{
-				if (!(isWat[i] || (x[i][0] <= Wall && x[i][2] <= Wall)))
-					continue;
-		 
-				glm::mat4 model = glm::mat4(1.0f);
-				model = glm::translate(model, x[i]);
-				sphereShader.setMat4("model", model);
-		
-				if (isWat[i])
-				{
-					float vel = glm::length(v[i]);
-					glm::vec3 color = vel * (whiteCol - waterCol) / 4.f + waterCol;
-					sphereShader.setVec3("objectColor", color);
-				}
-				else sphereShader.setVec3("objectColor", 0.2f, 0.2f, 0.2f);
-		
-				glDrawArrays(GL_TRIANGLES, 0, 360);
-			}
-		}
-
-		// Use GL_POINT, but no effect..
-
-		//pointShader.use();
+		//sphereShader.use();
+		//sphereShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
+		//sphereShader.setVec3("lightPos", lightPos);
+		//sphereShader.setVec3("viewPos", camera.Position);
+		//
+		//// create transformations
 		//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 		//glm::mat4 view = camera.GetViewMatrix();
-		//pointShader.setMat4("projection", projection);
-		//pointShader.setMat4("view", view);
-		//glBindVertexArray(pVAO);
+		//sphereShader.setMat4("projection", projection);
+		//sphereShader.setMat4("view", view);
+		//glBindVertexArray(sphereVAO);
+		//
 		//
 		//#pragma omp parallel default(shared)
 		//{
@@ -315,6 +304,52 @@ int main() {
 		//	{
 		//		if (!(isWat[i] || (x[i][0] <= Wall && x[i][2] <= Wall)))
 		//			continue;
+		// 
+		//		glm::mat4 model = glm::mat4(1.0f);
+		//		model = glm::translate(model, x[i]);
+		//		sphereShader.setMat4("model", model);
+		//
+		//		if (isWat[i])
+		//		{
+		//			float vel = glm::length(v[i]);
+		//			glm::vec3 color = vel * (whiteCol - waterCol) / 4.f + waterCol;
+		//			sphereShader.setVec3("objectColor", color);
+		//		}
+		//		else sphereShader.setVec3("objectColor", 0.2f, 0.2f, 0.2f);
+		//
+		//		glDrawArrays(GL_TRIANGLES, 0, 360);
+		//	}
+		//}
+
+		// Use GL_POINT, but no effect..
+
+		pointShader.use();
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view = camera.GetViewMatrix();
+		pointShader.setMat4("projection", projection);
+		pointShader.setMat4("view", view);
+		glBindVertexArray(pVAO);
+		
+		wCnt = 0;
+		bCnt = 0;
+		for (int i = 0; i < allPtc; i++)
+		{
+			if (isWat[i]) waters[wCnt++] = x[i];
+			else boundaries[bCnt++] = x[i];
+		}
+
+		glDrawArraysInstanced(GL_POINTS, 0, 3, pCount);
+
+		//#pragma omp parallel default(shared)
+		//{
+		//	//#pragma omp for schedule(static)
+		//	for (int i = 0; i < allPtc; i++)
+		//	{
+		//		if (!isWat[i])
+		//		{
+		//			if (x[i][0] > Wall) continue;
+		//			if (x[i][2] > Wall) continue;
+		//		}
 		//
 		//		glm::mat4 model = glm::mat4(1.0f);
 		//		model = glm::translate(model, x[i]);
