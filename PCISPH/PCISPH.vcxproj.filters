@@ -35,10 +35,10 @@
     <None Include="color.fs">
       <Filter>리소스 파일</Filter>
     </None>
-    <None Include="light_cube.fs">
+    <None Include="Point.fs">
       <Filter>리소스 파일</Filter>
     </None>
-    <None Include="light_cube.vs">
+    <None Include="Point.vs">
       <Filter>리소스 파일</Filter>
     </None>
   </ItemGroup>

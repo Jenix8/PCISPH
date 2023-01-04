@@ -1,7 +1,11 @@
 #ifndef SHADER_H
 #define SHADER_H
 
-#include <glad/glad.h>
+#include <GL/glew.h>
+#include <GL/GLU.h>
+#include <GL/glut.h>
+#include <GLFW/glfw3.h> 
+
 #include <glm/glm.hpp>
 
 #include <string>

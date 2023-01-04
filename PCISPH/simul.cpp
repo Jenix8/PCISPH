@@ -10,6 +10,9 @@
 #include <cmath>
 #include <time.h>
 
+#include "CompactNSearch.h"
+using namespace CompactNSearch;
+
 // Constants
 constexpr float PI = 3.1415926535;
 extern float Wall;
@@ -85,7 +88,7 @@ void InitSphere(float SV[1260]) {
 	}
 }
 
-float W(float r) 
+float W(float r)
 {
 	float hph = 2 * h;
 	float m_k = 8 / (PI * hph * hph * hph);
@@ -140,9 +143,9 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 {
 	int sign = -1;
 	float interval = 4 * h / 3;
-	for (float dx = -Wall-4*h; dx < Wall+4*h; dx += interval)
+	for (float dx = -Wall - 4 * h; dx < Wall + 4 * h; dx += interval)
 		for (float dz = -Wall - 4 * h; dz < Wall + 4 * h; dz += interval)
-			for (float dy = -4 * h; dy < 2.f; dy += interval)
+			for (float dy = -4 * h; dy < 2.f ; dy += interval)
 			{
 
 				bool isBoundary = abs(dx) > Wall || abs(dz) > Wall || dy < 0.0f;
@@ -152,12 +155,17 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(false);
 				}
-				else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
-				{
-					pos.push_back(glm::vec3(dx, dy, dz));
-					isW.push_back(true);
-				}
-				else if (dy >= 0.8f && dy <= 1.f && abs(dx) <= 0.2f && abs(dz) <= 0.2f)
+				//else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
+				//{
+				//	pos.push_back(glm::vec3(dx, dy, dz));
+				//	isW.push_back(true);
+				//}
+				//else if (dy >= 0.5f && dy <= 1.5f && abs(dx) <= 0.3f && abs(dz) <= 0.3f)
+				//{
+				//	pos.push_back(glm::vec3(dx, dy, dz));
+				//	isW.push_back(true);
+				//}
+				else if (dy <= 0.5f && dx <= -0.5f)
 				{
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(true);
@@ -165,7 +173,7 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 			}
 }
 
-bool errCheck(std::vector<float>& dErr, float eta) 
+bool errCheck(std::vector<float>& dErr, float eta)
 {
 	for (int i = 0; i < dErr.size(); i++) {
 		if (dErr[i] > eta)
@@ -174,65 +182,17 @@ bool errCheck(std::vector<float>& dErr, float eta)
 	return false;
 }
 
-glm::vec3 findCellNum(glm::vec3 pos) 
-{
-	int xIdx = (int)floor((pos[0] + Wall + 4 * h) / (2 * h));
-	int yIdx = (int)floor((pos[1] + 4 * h) / (2 * h));
-	int zIdx = (int)floor((pos[2] + Wall + 4 * h) / (2 * h));
-	return glm::vec3(xIdx, yIdx, zIdx);
-}
-
-std::vector<std::vector<int>> create_Particle_List_in_Cell(std::vector<glm::vec3>& pos) 
-{
-	std::vector<std::vector<int>> cList(Side * Side * Side);
-
-	for (int i = 0; i < pos.size(); i++)
-	{
-		glm::vec3 CNV = findCellNum(pos[i]);
-		int cIdx = Side * Side * CNV.y + Side * CNV.x + CNV.z;
-		if (cIdx < 0 || cIdx >= Side * Side * Side) continue;
-		cList[cIdx].push_back(i);
-	}
-
-	return cList;
-}
-
-std::vector<std::vector<int>> createNeighborList(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
-{
-	std::vector<std::vector<int>> nList;
-	std::vector<std::vector<int>> cList = create_Particle_List_in_Cell(pos);
-
-	for (int i = 0; i < pos.size(); i++)
-	{
-		glm::vec3 CNV = findCellNum(pos[i]);
-		std::vector<int> Neighb;
-
-		for (int a = -1; a <= 1; a++)
-			for (int b = -1; b <= 1; b++)
-				for (int c = -1; c <= 1; c++)
-				{
-					int cIdx = Side * Side * (CNV.y + a) + Side * (CNV.x + b) + (CNV.z + c);
-					if (cIdx < 0 || cIdx >= Side * Side * Side) continue;
-
-					Neighb.insert(Neighb.end(), cList[cIdx].begin(), cList[cIdx].end());
-				}
-
-		nList.push_back(Neighb);
-	}
-
-	return nList;
-}
-
-float predictDensity(int i, std::vector<glm::vec3>& pos, std::vector<std::vector<int>>& nList)
+float predictDensity(int i, std::vector<glm::vec3>& pos, unsigned int psID, PointSet const& ps)
 {
 	float rho = 0.0f;
 	glm::vec3 iPos = pos[i];
 
-	for (int n = 0; n < nList[i].size(); n++)
+	for (unsigned int j = 0; j < ps.n_neighbors(psID, i); j++)
 	{
-		if (i == nList[i][n]) continue;
+		int n = ps.neighbor(psID, i, j);
+		if (i == n) continue;
 
-		glm::vec3 nPos = pos[nList[i][n]];
+		glm::vec3 nPos = pos[n];
 		float dist = glm::length(iPos - nPos);
 		rho += m * W(dist);
 	}
@@ -248,15 +208,26 @@ int getParticleCount(std::vector<bool>& isW)
 	return count;
 }
 
-glm::vec3 CalcPressForce(int i, int n, std::vector<glm::vec3>& pos, std::vector<float>& p, std::vector<float>& d, std::vector<bool>& isW)
+glm::vec3 CalcPressForce(int i, unsigned int psID, PointSet const& ps, std::vector<glm::vec3>& pos, std::vector<float>& p, std::vector<float>& d, std::vector<bool>& isW)
 {
-	glm::vec3 nablaW = gradW(pos[i] - pos[n]);
+	glm::vec3 totalFpi(0);
 
-	float coeff;
-	//coeff = m * m * (p[i] / (d[i] * d[i]) + p[n] / (d[n] * d[n]));
-	if (isW[n])
-		coeff = m * m * (p[i] + (d[n] / rhoZero) * p[n]) / rhoZero;
-	else
-		coeff = m * m * p[i] / rhoZero;
-	return (coeff * nablaW);
+	for (unsigned int j = 0; j < ps.n_neighbors(psID, i); j++)
+	{
+		int n = ps.neighbor(psID, i, j);
+		if (i == n) continue;
+
+		glm::vec3 nablaW = gradW(pos[i] - pos[n]);
+
+		float coeff;
+		//coeff = m * m * (p[i] / (d[i] * d[i]) + p[n] / (d[n] * d[n]));
+		if (isW[n])
+			coeff = m * m * (p[i] + (d[n] / rhoZero) * p[n]) / rhoZero;
+		else
+			coeff = m * m * p[i] / rhoZero;
+
+		totalFpi += coeff * nablaW;
+	}
+
+	return totalFpi;
 }

@@ -148,7 +148,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)\lib;D:\CompactNSearch\shared\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;CompactNSearch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;glfw3_mt.lib;glfw3dll.lib;glew32.lib;opengl32.lib;CompactNSearch.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -160,8 +160,8 @@
   <ItemGroup>
     <None Include="color.fs" />
     <None Include="color.vs" />
-    <None Include="light_cube.fs" />
-    <None Include="light_cube.vs" />
+    <None Include="Point.fs" />
+    <None Include="Point.vs" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />

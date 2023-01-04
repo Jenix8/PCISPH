@@ -1,5 +1,8 @@
-#include <glad/glad.h> // 이게 먼저
-#include <GLFW/glfw3.h> 
+//#include <glad/glad.h> 
+//#include <GL/glew.h>
+//#include <GL/GLU.h>
+//#include <GL/glut.h>
+//#include <GLFW/glfw3.h> 
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,12 +12,16 @@
 #include "camera.h"
 #include "simul.h"
 
+#include <chrono>
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <array>
 #include "CompactNSearch.h"
 using namespace CompactNSearch;
+using namespace std;
+using namespace chrono;
+
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
@@ -36,6 +43,8 @@ bool firstMouse = true;
 
 // lighting
 glm::vec3 lightPos(4.0f, 4.0f, 4.0f);
+glm::vec3 waterCol(0.11f, 0.64f, 0.96f);
+glm::vec3 whiteCol(1.f, 1.f, 1.f);
 
 // particle setting
 float sphereVertices[2160];
@@ -48,6 +57,8 @@ glm::vec3 Fg = m * g;
 
 // particles
 std::vector<glm::vec3> x;			// position
+std::vector<std::array<Real, 3>> Nx;	// positions for neighbor search
+std::vector<int> water;				// waterIdx
 std::vector<glm::vec3> v;			// velocity
 std::vector<bool> isWat;			// true: water, false: boundary
 std::vector<glm::vec3> px;			// predicted position
@@ -59,12 +70,11 @@ float eta = 0.01f;
 
 // another 
 int minIterations = 3;
-int maxIterations = 10;
 float deltaTime = 1 / 400.f;// 0.0013f;
 
 int main() {
 	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);  
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -76,19 +86,30 @@ int main() {
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetScrollCallback(window, scroll_callback);						  				  
+	glfwSetScrollCallback(window, scroll_callback);
 	//glfwSetCursorPosCallback(window, mouse_callback);					  
 	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);		  
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) { 
-		std::cout << "Failed to initialize GLAD" << '\n';
-		return -1;
+	//if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+	//	std::cout << "Failed to initialize GLAD" << '\n';
+	//	return -1;
+	//}
+
+	glewExperimental = GL_TRUE;
+
+	GLenum errorCode = glewInit();
+	if (GLEW_OK != errorCode) {
+		glfwTerminate();
+		exit(EXIT_FAILURE);
 	}
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_POINT_SPRITE);
 
 	Shader sphereShader("color.vs", "color.fs");
-	Shader lightCubeShader("light_cube.vs", "light_cube.fs");
+	Shader pointShader("Point.vs", "Point.fs");
+
+	float pVertex[] = { 0.0f, 0.0f, 0.0f };
 
 	InitSphere(sphereVertices);
 
@@ -106,22 +127,52 @@ int main() {
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
+	unsigned int pVBO, pVAO;
+	glGenVertexArrays(1, &pVAO);
+	glGenBuffers(1, &pVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, pVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(pVertex), pVertex, GL_STATIC_DRAW);
+	glBindVertexArray(pVAO);
+
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	// color attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
 
 	//////////////////////////////////////////////////
 	// Start Simulation
 
 	initialize(x, isWat);
-	int pCount = getParticleCount(isWat);
 	int allPtc = x.size();
 
-	std::vector<glm::vec3> initVec3(allPtc);
-	std::vector<float> initFlt(allPtc);
-	v = initVec3;
+	Nx.resize(allPtc);
+	v.resize(allPtc);
 	px = x;
 	pv = v;
-	d = initFlt;
-	dErr = initFlt;
+	d.resize(allPtc);
+	dErr.resize(allPtc);
+
+	for (int i = 0; i < allPtc; i++)
+		if (isWat[i]) water.push_back(i);
+		else d[i] = rhoZero;
+
+	int pCount = water.size();
 	printf("pCount: %d\n", pCount);
+
+	NeighborhoodSearch nsearch(2 * h);
+
+	for (int i = 0; i < allPtc; i++)
+		for (int j = 0; j < 3; j++)
+			Nx[i][j] = x[i][j];
+
+	unsigned int psID = nsearch.add_point_set(Nx.front().data(), Nx.size());
+	nsearch.z_sort();
+	nsearch.find_neighbors();
+	PointSet const& ps = nsearch.point_set(psID);
+
+	glPointSize(10.0f);
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -135,10 +186,22 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// 2. ANIMATING
-		// Bounding Volume is [-1.5, 1.5] x [0.0, 3.0] x [-1.5, 1.5] 
-		
 		// find neighborhoods
-		std::vector<std::vector<int>> nParticlesList = createNeighborList(x, isWat);
+		system_clock::time_point T1 = system_clock::now();
+
+		#pragma omp parallel default(shared)
+		{
+			// update only water particle
+			#pragma omp for schedule(static)
+			for (int i = 0; i < pCount; i++)
+				for (int j = 0; j < 3; j++)
+					Nx[water[i]][j] = x[water[i]][j];
+		}
+
+		nsearch.find_neighbors();
+		nsearch.update_point_sets();
+
+		system_clock::time_point T2 = system_clock::now();
 
 		// initialize pressure and pressure force as 0
 		std::vector<float> p(allPtc);			// pressure
@@ -147,29 +210,28 @@ int main() {
 
 		// START PREDICTING LOOP
 		int Iter = 0;
-		while ((errCheck(dErr, rhoZero * eta) || Iter < minIterations))// && Iter < maxIterations)
+		while (errCheck(dErr, rhoZero * eta) || Iter < minIterations)
 		{
 			#pragma omp parallel default(shared)
 			{
 				#pragma omp for schedule(static)
-				for (int i = 0; i < allPtc; i++)
+				for (int pIdx = 0; pIdx < pCount; pIdx++)
 				{
-					if (!isWat[i]) continue;
+					int i = water[pIdx];
 
 					// predict next v and x
 					accel[i] = (Fg + Fp[i]) / m;
-
 					pv[i] = v[i] + deltaTime * accel[i];
 					px[i] = x[i] + deltaTime * pv[i];
 				}
 
 				#pragma omp for schedule(static)
-				for (int i = 0; i < allPtc; i++)
+				for (int pIdx = 0; pIdx < pCount; pIdx++)
 				{
-					// predict next density and its variation
-					if (!isWat[i]) d[i] = rhoZero;
-					else d[i] = predictDensity(i, px, nParticlesList);
+					int i = water[pIdx];
 
+					// predict next density and its variation
+					d[i] = predictDensity(i, px, psID, ps);
 					dErr[i] = d[i] - rhoZero;
 
 					// update pressure
@@ -178,34 +240,24 @@ int main() {
 				}
 
 				#pragma omp for schedule(static)
-				for (int i = 0; i < allPtc; i++)
+				for (int pIdx = 0; pIdx < pCount; pIdx++)
 				{
-					if (!isWat[i]) continue;
-
+					int i = water[pIdx];
 					// compute Fp
-					for (int n = 0; n < nParticlesList[i].size(); n++)
-					{
-						if (i == nParticlesList[i][n]) continue;
-						Fp[i] -= CalcPressForce(i, nParticlesList[i][n], px, p, d, isWat);
-					}
+					Fp[i] -= CalcPressForce(i, psID, ps, px, p, d, isWat);
 				}
 			}
 
 			Iter++;
 		}
-		
-		// assign new v and x
-		#pragma omp parallel default(shared)
-		{
-			#pragma omp for schedule(static)
-			for (int i = 0; i < allPtc; i++)
-			{
-				if (!isWat[i]) continue;
 
-				v[i] = pv[i];
-				x[i] = px[i];
-			}
+		#pragma omp parallel
+		{
+			v = pv;
+			x = px;
 		}
+
+		system_clock::time_point T3 = system_clock::now();
 
 		// 3. RENDERING
 
@@ -214,39 +266,90 @@ int main() {
 		sphereShader.setVec3("lightColor", 1.0f, 1.0f, 1.0f);
 		sphereShader.setVec3("lightPos", lightPos);
 		sphereShader.setVec3("viewPos", camera.Position);
-
+		
 		// create transformations
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		sphereShader.setMat4("projection", projection);
 		sphereShader.setMat4("view", view);
-
-		for (int i = 0; i < allPtc; i++)
+		glBindVertexArray(sphereVAO);
+		
+		
+		#pragma omp parallel default(shared)
 		{
-			glm::mat4 model = glm::mat4(1.0f);
-			model = glm::translate(model, x[i]);
-			sphereShader.setMat4("model", model);
-
-			if (isWat[i]) sphereShader.setVec3("objectColor", 0.11f, 0.64f, 0.96f);
-			else sphereShader.setVec3("objectColor", 0.2f, 0.2f, 0.2f);
-
-			if (isWat[i] || (x[i][0] <= Wall && x[i][2] <= Wall))
+			//#pragma omp for schedule(static)
+			for (int i = 0; i < allPtc; i++)
 			{
-				glBindVertexArray(sphereVAO);
+				if (!(isWat[i] || (x[i][0] <= Wall && x[i][2] <= Wall)))
+					continue;
+		 
+				glm::mat4 model = glm::mat4(1.0f);
+				model = glm::translate(model, x[i]);
+				sphereShader.setMat4("model", model);
+		
+				if (isWat[i])
+				{
+					float vel = glm::length(v[i]);
+					glm::vec3 color = vel * (whiteCol - waterCol) / 4.f + waterCol;
+					sphereShader.setVec3("objectColor", color);
+				}
+				else sphereShader.setVec3("objectColor", 0.2f, 0.2f, 0.2f);
+		
 				glDrawArrays(GL_TRIANGLES, 0, 360);
 			}
 		}
 
-		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+		// Use GL_POINT, but no effect..
+
+		//pointShader.use();
+		//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+		//glm::mat4 view = camera.GetViewMatrix();
+		//pointShader.setMat4("projection", projection);
+		//pointShader.setMat4("view", view);
+		//glBindVertexArray(pVAO);
+		//
+		//#pragma omp parallel default(shared)
+		//{
+		//	//#pragma omp for schedule(static)
+		//	for (int i = 0; i < allPtc; i++)
+		//	{
+		//		if (!(isWat[i] || (x[i][0] <= Wall && x[i][2] <= Wall)))
+		//			continue;
+		//
+		//		glm::mat4 model = glm::mat4(1.0f);
+		//		model = glm::translate(model, x[i]);
+		//		pointShader.setMat4("model", model);
+		//	
+		//		if (isWat[i])
+		//		{
+		//			float vel = glm::length(v[i]);
+		//			glm::vec3 color = vel * (whiteCol - waterCol) / 4.f + waterCol;
+		//			pointShader.setVec3("objectColor", color);
+		//		}
+		//		else pointShader.setVec3("objectColor", 0.2f, 0.2f, 0.2f);
+		//
+		//		glDrawArrays(GL_POINTS, 0, 3);
+		//	}
+		//}
+
+		system_clock::time_point T4 = system_clock::now();
+
+		//if (false)
+		{
+			cout << "1. " << duration_cast<microseconds>(T2 - T1).count() << endl;
+			cout << "2. " << duration_cast<microseconds>(T3 - T2).count() << endl;
+			cout << "3. " << duration_cast<microseconds>(T4 - T3).count() << endl;
+		}
+		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	// optional: de-allocate all resources once they've outlived their purpose:
 	glDeleteVertexArrays(1, &sphereVAO);
+	glDeleteVertexArrays(1, &pVAO);
 	glDeleteBuffers(1, &sphereVBO);
+	glDeleteBuffers(1, &pVBO);
 
-	// glfw: terminate, clearing all previously allocated GLFW resources.
 	glfwTerminate();
 	return 0;
 }
@@ -259,7 +362,7 @@ void processInput(GLFWwindow* window) {
 		glfwSetWindowShouldClose(window, true);
 
 	const float cameraSpeed = static_cast<float>(2.5f * deltaTime);
-	float T = 100 * deltaTime;
+	float T = 10 * deltaTime;
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		camera.ProcessKeyboard(FORWARD, T);
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
