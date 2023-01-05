@@ -20,11 +20,6 @@ extern float h;
 extern float m;
 extern float deltaTime;
 extern float rhoZero;
-int Side = (int)(Wall / h) + 4;
-
-void Test(int n) { printf("Test%d\n", n); }
-void printPos(glm::vec3 p) { printf("(%.3f, %.3f, %.3f)\n", p.x, p.y, p.z); }
-void printFlt(float f) { printf("%.3f\n", f); }
 
 float W(float r)
 {
@@ -114,7 +109,7 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 bool errCheck(std::vector<float>& dErr, float eta)
 {
 	for (int i = 0; i < dErr.size(); i++) {
-		if (dErr[i] > eta)
+		if (dErr[i] > rhoZero * eta)
 			return true;
 	}
 	return false;
@@ -139,14 +134,6 @@ float predictDensity(int i, std::vector<glm::vec3>& pos, unsigned int psID, Poin
 	return rho;
 }
 
-int getParticleCount(std::vector<bool>& isW)
-{
-	int count = 0;
-	for (int i = 0; i < isW.size(); i++)
-		if (isW[i]) count++;
-	return count;
-}
-
 glm::vec3 CalcPressForce(int i, unsigned int psID, PointSet const& ps, std::vector<glm::vec3>& pos, std::vector<float>& p, std::vector<float>& d, std::vector<bool>& isW)
 {
 	glm::vec3 totalFpi(0);
@@ -160,11 +147,14 @@ glm::vec3 CalcPressForce(int i, unsigned int psID, PointSet const& ps, std::vect
 		glm::vec3 nablaW = gradW(pos[i] - pos[n]);
 
 		float coeff;
-		//coeff = m * m * (p[i] / (d[i] * d[i]) + p[n] / (d[n] * d[n]));
+		// the following equation is refered from an open source, not paper 
 		if (isW[n])
 			coeff = m * m * (p[i] + (d[n] / rhoZero) * p[n]) / rhoZero;
 		else
 			coeff = m * m * p[i] / rhoZero;
+
+		// the following equation is the written one in paper, but not working well..
+		//coeff = m * m * (p[i] / (d[i] * d[i]) + p[n] / (d[n] * d[n]));
 
 		totalFpi += coeff * nablaW;
 	}

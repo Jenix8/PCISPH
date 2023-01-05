@@ -1,9 +1,3 @@
-//#include <glad/glad.h> 
-//#include <GL/glew.h>
-//#include <GL/GLU.h>
-//#include <GL/glut.h>
-//#include <GLFW/glfw3.h> 
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -22,7 +16,6 @@ using namespace CompactNSearch;
 using namespace std;
 using namespace chrono;
 
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -31,8 +24,6 @@ void processInput(GLFWwindow* window);
 // initializing setup
 const unsigned int WIDTH = 1280;
 const unsigned int HEIGHT = 720;
-
-// Constants
 constexpr float PI = 3.1415926535;
 
 // camera setup
@@ -41,14 +32,12 @@ float lastX = WIDTH / 2.0f;
 float lastY = HEIGHT / 2.0f;
 bool firstMouse = true;
 
-// coloring
-glm::vec3 lightPos(4.0f, 4.0f, 4.0f);
+// visualizing
 glm::vec3 waterCol(0.11f, 0.64f, 0.96f);
 glm::vec3 whiteCol(1.f, 1.f, 1.f);
 glm::vec3 highPres(0.7f, 0.f, 0.f);
 
 // particle setting
-float sphereVertices[2160];
 float Wall = 0.5f;
 float h = 0.025f;					// particle radius
 float rhoZero = 1000;				// reference density
@@ -56,7 +45,6 @@ float m = rhoZero * 4 * PI * h * h * h / 3;	// particle mass (all particles have
 glm::vec3 g(0.0f, -9.81f, 0.0f);	// gravity
 glm::vec3 Fg = m * g;
 
-// particles
 std::vector<glm::vec3> x;			// position
 std::vector<std::array<Real, 3>> Nx;	// positions for neighbor search
 std::vector<int> water;				// waterIdx
@@ -78,10 +66,8 @@ enum class VISUAL_MODE
 };
 
 float pVertex[700000];
-std::vector<int> visible;
 int minIterations = 3;
-int maxIterations = 15;
-float deltaTime = 1 / 400.f;// 0.0013f;
+float deltaTime = 1 / 400.f;
 int frame = 0;
 VISUAL_MODE mode = VISUAL_MODE::VELOCITY;
 
@@ -137,7 +123,6 @@ int main() {
 	int pCount = water.size();
 	printf("pCount: %d\n", pCount);
 
-	int wCnt = 0, bCnt = 0;
 	for (int i = 0; i < allPtc; i++)
 		for (int j = 0; j < 3; j++)
 			Nx[i][j] = x[i][j];
@@ -148,18 +133,6 @@ int main() {
 	nsearch.z_sort();
 	nsearch.find_neighbors();
 	PointSet const& ps = nsearch.point_set(psID);
-
-	for (int i = 0; i < allPtc; i++)
-	{
-		pVertex[7 * i + 0] = x[i].x;
-		pVertex[7 * i + 1] = x[i].y;
-		pVertex[7 * i + 2] = x[i].z;
-					
-		pVertex[7 * i + 3] = 0;
-		pVertex[7 * i + 4] = 0;
-		pVertex[7 * i + 5] = 0;
-		pVertex[7 * i + 6] = 1;
-	}
 
 	unsigned int pVBO, pVAO;
 	glGenVertexArrays(1, &pVAO);
@@ -175,20 +148,20 @@ int main() {
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
+	pointShader.use();
+	glBindVertexArray(pVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, pVBO);
+
 	// render loop
 	while (!glfwWindowShouldClose(window))
 	{
 		// 1. DEFAULT SETTING
 		frame++;
-
-		// input
 		processInput(window);
-
 		glClearColor(0.6f, 0.5f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// 2. ANIMATING
-		// find neighborhoods
 		system_clock::time_point T1 = system_clock::now();
 
 		#pragma omp parallel default(shared)
@@ -212,7 +185,7 @@ int main() {
 
 		// START PREDICTING LOOP
 		int Iter = 0;
-		while ((errCheck(dErr, rhoZero * eta) || Iter < minIterations))// && Iter < maxIterations)
+		while (errCheck(dErr, eta) || Iter < minIterations)
 		{
 			#pragma omp parallel default(shared)
 			{
@@ -260,13 +233,10 @@ int main() {
 		system_clock::time_point T3 = system_clock::now();
 
 		// 3. RENDERING
-
-		pointShader.use();
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		pointShader.setMat4("projection", projection);
 		pointShader.setMat4("view", view);
-		glBindVertexArray(pVAO);
 
 		#pragma omp parallel default(shared)
 		{
@@ -311,19 +281,17 @@ int main() {
 			}
 		}
 
-		glBindBuffer(GL_ARRAY_BUFFER, pVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(pVertex), pVertex, GL_STATIC_DRAW);
-
 		glDrawArrays(GL_POINTS, 0, allPtc);
 
 		system_clock::time_point T4 = system_clock::now();
 
 		if (false)
 		{
-			printf("%d's Iterations: %d\n", frame, Iter);
-			cout << "1. " << duration_cast<microseconds>(T2 - T1).count() << endl;
-			cout << "2. " << duration_cast<microseconds>(T3 - T2).count() << endl;
-			cout << "3. " << duration_cast<microseconds>(T4 - T3).count() << endl;
+			printf("\n%d's Iterations: %d\n", frame, Iter);
+			cout << "NeighborSearch\t:" << duration_cast<microseconds>(T2 - T1).count() << "\tmicros" << endl;
+			cout << "Predicting\t:" << duration_cast<microseconds>(T3 - T2).count() << "\tmicros" << endl;
+			cout << "Rendering\t:" << duration_cast<microseconds>(T4 - T3).count() << "\tmicros" << endl;
 		}
 		
 		glfwSwapBuffers(window);
