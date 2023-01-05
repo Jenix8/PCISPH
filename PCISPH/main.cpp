@@ -41,10 +41,11 @@ float lastX = WIDTH / 2.0f;
 float lastY = HEIGHT / 2.0f;
 bool firstMouse = true;
 
-// lighting
+// coloring
 glm::vec3 lightPos(4.0f, 4.0f, 4.0f);
 glm::vec3 waterCol(0.11f, 0.64f, 0.96f);
 glm::vec3 whiteCol(1.f, 1.f, 1.f);
+glm::vec3 highPres(0.7f, 0.f, 0.f);
 
 // particle setting
 float sphereVertices[2160];
@@ -66,15 +67,23 @@ std::vector<glm::vec3> pv;			// predicted velocity
 std::vector<float> d;				// density
 std::vector<float> dErr;			// density variation
 float delta = 0.003f;
-float eta = 0.05f;
+float eta = 0.01f;
 
 // another 
+enum class VISUAL_MODE
+{
+	VELOCITY,
+	PRESSURE,
+	DENSITY
+};
+
 float pVertex[700000];
 std::vector<int> visible;
 int minIterations = 3;
 int maxIterations = 15;
 float deltaTime = 1 / 400.f;// 0.0013f;
 int frame = 0;
+VISUAL_MODE mode = VISUAL_MODE::VELOCITY;
 
 int main() {
 	glfwInit();
@@ -278,8 +287,19 @@ int main() {
 				}
 				else
 				{
-					float vel = glm::length(v[i]);
-					color = vel * (whiteCol - waterCol) / 4.f + waterCol;
+					if (mode == VISUAL_MODE::VELOCITY)
+					{
+						float vel = glm::length(v[i]);
+						color = vel * (whiteCol - waterCol) / 4.f + waterCol;
+					}
+					else if (mode == VISUAL_MODE::PRESSURE)
+					{
+						color = p[i] * (highPres - waterCol) / 3.f + waterCol;
+					}
+					else if (mode == VISUAL_MODE::DENSITY)
+					{
+						color = (d[i] - rhoZero) * (highPres - waterCol) / (rhoZero * eta) + waterCol;
+					}
 				}
 
 				pVertex[7 * i + 3] = color.x;
@@ -334,6 +354,13 @@ void processInput(GLFWwindow* window) {
 		camera.ProcessKeyboard(UPWARD, T);
 	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 		camera.ProcessKeyboard(DOWNWARD, T);
+
+	if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS)
+		mode = VISUAL_MODE::VELOCITY;
+	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+		mode = VISUAL_MODE::PRESSURE;
+	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+		mode = VISUAL_MODE::DENSITY;
 }
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
 	float xpos = static_cast<float>(xposIn);

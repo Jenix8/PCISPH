@@ -93,21 +93,21 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(false);
 				}
-				else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
-				{
-					pos.push_back(glm::vec3(dx, dy, dz));
-					isW.push_back(true);
-				}
-				else if (dy >= 0.5f && dy <= 1.0f && abs(dx) <= 0.3f && abs(dz) <= 0.3f)
-				{
-					pos.push_back(glm::vec3(dx, dy, dz));
-					isW.push_back(true);
-				}
-				//else if (dy <= 0.5f && dx <= 0.f)
+				//else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
 				//{
 				//	pos.push_back(glm::vec3(dx, dy, dz));
 				//	isW.push_back(true);
 				//}
+				//else if (dy >= 0.5f && dy <= 1.5f && abs(dx) <= 0.2f && abs(dz) <= 0.2f)
+				//{
+				//	pos.push_back(glm::vec3(dx, dy, dz));
+				//	isW.push_back(true);
+				//}
+				else if (dy <= 0.5f && dx <= 0.f)
+				{
+					pos.push_back(glm::vec3(dx, dy, dz));
+					isW.push_back(true);
+				}
 			}
 }
 
