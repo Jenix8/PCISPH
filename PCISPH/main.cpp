@@ -66,11 +66,15 @@ std::vector<glm::vec3> pv;			// predicted velocity
 std::vector<float> d;				// density
 std::vector<float> dErr;			// density variation
 float delta = 0.003f;
-float eta = 0.01f;
+float eta = 0.05f;
 
 // another 
+float pVertex[700000];
+std::vector<int> visible;
 int minIterations = 3;
+int maxIterations = 15;
 float deltaTime = 1 / 400.f;// 0.0013f;
+int frame = 0;
 
 int main() {
 	glfwInit();
@@ -87,7 +91,7 @@ int main() {
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);					  
+	//glfwSetCursorPosCallback(window, mouse_callback);					  
 	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);		  
 
 	glewExperimental = GL_TRUE;
@@ -103,24 +107,9 @@ int main() {
 	glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
 	glEnable(GL_POINT_SMOOTH);
 	glEnable(GL_PROGRAM_POINT_SIZE);
+	glEnable(GL_DEPTH_TEST);
 
 	Shader pointShader("Point.vs", "Point.fs");
-
-	float pVertex[] = { 0.0f, 0.0f, 0.0f };
-
-	unsigned int pVBO, pVAO;
-	glGenVertexArrays(1, &pVAO);
-	glGenBuffers(1, &pVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, pVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(pVertex), pVertex, GL_STATIC_DRAW);
-	glBindVertexArray(pVAO);
-	
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	// color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(1);
 
 	initialize(x, isWat);
 	int allPtc = x.size();
@@ -151,21 +140,40 @@ int main() {
 	nsearch.find_neighbors();
 	PointSet const& ps = nsearch.point_set(psID);
 
-	pointShader.use();
-	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
-	glm::mat4 view = camera.GetViewMatrix();
-	pointShader.setMat4("projection", projection);
-	pointShader.setMat4("view", view);
+	for (int i = 0; i < allPtc; i++)
+	{
+		pVertex[7 * i + 0] = x[i].x;
+		pVertex[7 * i + 1] = x[i].y;
+		pVertex[7 * i + 2] = x[i].z;
+					
+		pVertex[7 * i + 3] = 0;
+		pVertex[7 * i + 4] = 0;
+		pVertex[7 * i + 5] = 0;
+		pVertex[7 * i + 6] = 1;
+	}
+
+	unsigned int pVBO, pVAO;
+	glGenVertexArrays(1, &pVAO);
+	glGenBuffers(1, &pVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, pVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(pVertex), pVertex, GL_STATIC_DRAW);
 	glBindVertexArray(pVAO);
 
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	// color attribute
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
 	{
 		// 1. DEFAULT SETTING
+		frame++;
 
 		// input
-		//processInput(window);
+		processInput(window);
 
 		glClearColor(0.6f, 0.5f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -195,7 +203,7 @@ int main() {
 
 		// START PREDICTING LOOP
 		int Iter = 0;
-		while (errCheck(dErr, rhoZero * eta) || Iter < minIterations)
+		while ((errCheck(dErr, rhoZero * eta) || Iter < minIterations))// && Iter < maxIterations)
 		{
 			#pragma omp parallel default(shared)
 			{
@@ -236,47 +244,60 @@ int main() {
 
 			Iter++;
 		}
-
-		#pragma omp parallel
-		{
-			v = pv;
-			x = px;
-		}
+		
+		v = pv;
+		x = px;
 
 		system_clock::time_point T3 = system_clock::now();
 
 		// 3. RENDERING
 
+		pointShader.use();
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view = camera.GetViewMatrix();
+		pointShader.setMat4("projection", projection);
+		pointShader.setMat4("view", view);
+		glBindVertexArray(pVAO);
+
 		#pragma omp parallel default(shared)
 		{
 			for (int i = 0; i < allPtc; i++)
 			{
+				pVertex[7 * i + 0] = x[i].x;
+				pVertex[7 * i + 1] = x[i].y;
+				pVertex[7 * i + 2] = x[i].z;
+
+				pVertex[7 * i + 6] = 1;
+
+				glm::vec3 color;
 				if (!isWat[i])
 				{
-					if (x[i][0] > Wall) continue;
-					if (x[i][2] > Wall) continue;
+					if (x[i][0] > Wall) pVertex[7 * i + 6] = 0;
+					if (x[i][2] > Wall) pVertex[7 * i + 6] = 0;
+					color = glm::vec3(0.2f);
 				}
-		
-				glm::mat4 model = glm::mat4(1.0f);
-				model = glm::translate(model, x[i]);
-				pointShader.setMat4("model", model);
-			
-				if (isWat[i])
+				else
 				{
 					float vel = glm::length(v[i]);
-					glm::vec3 color = vel * (whiteCol - waterCol) / 4.f + waterCol;
-					pointShader.setVec3("objectColor", color);
+					color = vel * (whiteCol - waterCol) / 4.f + waterCol;
 				}
-				else pointShader.setVec3("objectColor", 0.2f, 0.2f, 0.2f);
-		
-				glDrawArrays(GL_POINTS, 0, 3);
+
+				pVertex[7 * i + 3] = color.x;
+				pVertex[7 * i + 4] = color.y;
+				pVertex[7 * i + 5] = color.z;
 			}
 		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, pVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pVertex), pVertex, GL_STATIC_DRAW);
+
+		glDrawArrays(GL_POINTS, 0, allPtc);
 
 		system_clock::time_point T4 = system_clock::now();
 
 		if (false)
 		{
+			printf("%d's Iterations: %d\n", frame, Iter);
 			cout << "1. " << duration_cast<microseconds>(T2 - T1).count() << endl;
 			cout << "2. " << duration_cast<microseconds>(T3 - T2).count() << endl;
 			cout << "3. " << duration_cast<microseconds>(T4 - T3).count() << endl;

@@ -93,21 +93,21 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(false);
 				}
-				//else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
-				//{
-				//	pos.push_back(glm::vec3(dx, dy, dz));
-				//	isW.push_back(true);
-				//}
-				//else if (dy >= 0.5f && dy <= 1.5f && abs(dx) <= 0.3f && abs(dz) <= 0.3f)
-				//{
-				//	pos.push_back(glm::vec3(dx, dy, dz));
-				//	isW.push_back(true);
-				//}
-				else if (dy <= 0.5f && dx <= 0.f)
+				else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
 				{
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(true);
 				}
+				else if (dy >= 0.5f && dy <= 1.0f && abs(dx) <= 0.3f && abs(dz) <= 0.3f)
+				{
+					pos.push_back(glm::vec3(dx, dy, dz));
+					isW.push_back(true);
+				}
+				//else if (dy <= 0.5f && dx <= 0.f)
+				//{
+				//	pos.push_back(glm::vec3(dx, dy, dz));
+				//	isW.push_back(true);
+				//}
 			}
 }
 
@@ -125,6 +125,7 @@ float predictDensity(int i, std::vector<glm::vec3>& pos, unsigned int psID, Poin
 	float rho = 0.0f;
 	glm::vec3 iPos = pos[i];
 
+	#pragma omp parallel
 	for (unsigned int j = 0; j < ps.n_neighbors(psID, i); j++)
 	{
 		int n = ps.neighbor(psID, i, j);
