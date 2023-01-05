@@ -67,7 +67,7 @@ std::vector<glm::vec3> pv;			// predicted velocity
 std::vector<float> d;				// density
 std::vector<float> dErr;			// density variation
 float delta = 0.003f;
-float eta = 0.01f;
+float eta = 0.05f;
 
 // another 
 enum class VISUAL_MODE
@@ -294,11 +294,14 @@ int main() {
 					}
 					else if (mode == VISUAL_MODE::PRESSURE)
 					{
-						color = p[i] * (highPres - waterCol) / 3.f + waterCol;
+						color = p[i] * (highPres - waterCol) / 2.f + waterCol;
 					}
 					else if (mode == VISUAL_MODE::DENSITY)
 					{
-						color = (d[i] - rhoZero) * (highPres - waterCol) / (rhoZero * eta) + waterCol;
+						if (d[i] < rhoZero)
+							color = waterCol;
+						else
+							color = (d[i] - rhoZero) * (highPres - waterCol) / (rhoZero * eta) + waterCol;
 					}
 				}
 
