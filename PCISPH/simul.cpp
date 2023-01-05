@@ -26,68 +26,6 @@ void Test(int n) { printf("Test%d\n", n); }
 void printPos(glm::vec3 p) { printf("(%.3f, %.3f, %.3f)\n", p.x, p.y, p.z); }
 void printFlt(float f) { printf("%.3f\n", f); }
 
-void InitSphere(float SV[1260]) {
-	float sphereVerticesIdx[396];
-	int count = 0;
-	for (float phi = 0.0f; phi <= 180.0f; phi += 30.0f) {
-		if (phi == 0.0f || phi == 180.0f) {
-			sphereVerticesIdx[count++] = 0.0f;
-			sphereVerticesIdx[count++] = h * cos(glm::radians(phi));
-			sphereVerticesIdx[count++] = 0.0f;
-
-			continue;
-		}
-
-		for (float theta = 0.0f; theta <= 360.0f; theta += 30.0f) {
-			sphereVerticesIdx[count++] = h * sin(glm::radians(phi)) * cos(glm::radians(theta));
-			sphereVerticesIdx[count++] = h * cos(glm::radians(phi));
-			sphereVerticesIdx[count++] = h * sin(glm::radians(phi)) * sin(glm::radians(theta));
-		}
-	}
-
-	unsigned int Idx[360];
-	count = 0;
-	int j = 0;
-	while (count < 360) {
-		for (int i = 1; i <= 12; i++) {
-			Idx[count++] = 0;
-			Idx[count++] = i + 1;
-			Idx[count++] = i;
-		}
-		for (int i = 1; i <= 51; i++) {
-			Idx[count++] = i;
-			Idx[count++] = i + 1;
-			Idx[count++] = i + 13;
-
-			Idx[count++] = i + 1;
-			Idx[count++] = i + 14;
-			Idx[count++] = i + 13;
-
-			j++;
-
-			if (j % 12 == 0) {
-				i++;
-				j = 0;
-			}
-		}
-		for (int i = 53; i <= 64; i++) {
-			Idx[count++] = i;
-			Idx[count++] = i + 1;
-			Idx[count++] = 66;
-		}
-	}
-
-	count = 0;
-	for (int i = 0; i < 360; i++) {
-		// position
-		SV[count++] = sphereVerticesIdx[3 * Idx[i] + 0];
-		SV[count++] = sphereVerticesIdx[3 * Idx[i] + 1];
-		SV[count++] = sphereVerticesIdx[3 * Idx[i] + 2];
-		// normal
-		for (int j = 0; j < 3; j++) SV[count++] = SV[count - 3] / h;
-	}
-}
-
 float W(float r)
 {
 	float hph = 2 * h;
@@ -165,7 +103,7 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 				//	pos.push_back(glm::vec3(dx, dy, dz));
 				//	isW.push_back(true);
 				//}
-				else if (dy <= 0.5f && dx <= -0.6f)
+				else if (dy <= 0.5f && dx <= 0.f)
 				{
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(true);
