@@ -7,7 +7,7 @@ I used
 + the [CompactNSearch](https://github.com/InteractiveComputerGraphics/CompactNSearch) for neighbor search
 
 
-I refered 
+I referred to
 + [Paper](https://dl.acm.org/doi/abs/10.1145/1576246.1531346)
 + [SPlisHSPlasH](https://github.com/InteractiveComputerGraphics/SPlisHSPlasH)
 + [another](https://github.com/cerrno/pcisph)
