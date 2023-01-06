@@ -14,3 +14,7 @@ I referred to
 
 ## Result
 ![PCISPH simulator 2023-01-05 18-25-46](https://user-images.githubusercontent.com/108937571/210780485-f60cf5db-bda1-4d1d-8517-40e5d4d273ee.gif)
+
+### option
++ WASD : move a camera
++ V, R, P : visualize the velocity (default) / density / pressure of each particles, respectively
