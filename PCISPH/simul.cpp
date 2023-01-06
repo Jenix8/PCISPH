@@ -15,7 +15,8 @@ using namespace CompactNSearch;
 
 // Constants
 constexpr float PI = 3.1415926535;
-extern float Wall;
+extern float WallX;
+extern float WallZ;
 extern float h;
 extern float m;
 extern float deltaTime;
@@ -76,19 +77,19 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 {
 	int sign = -1;
 	float interval = 4 * h / 3;
-	for (float dx = -Wall - 4 * h; dx < Wall + 4 * h; dx += interval)
-		for (float dz = -Wall - 4 * h; dz < Wall + 4 * h; dz += interval)
-			for (float dy = -4 * h; dy < 2.f ; dy += interval)
+	for (float dx = -WallX - 4 * h; dx < WallX + 4 * h; dx += interval)
+		for (float dz = -WallZ - 4 * h; dz < WallZ + 4 * h; dz += interval)
+			for (float dy = -4 * h; dy < 2.f; dy += interval)
 			{
 
-				bool isBoundary = abs(dx) > Wall || abs(dz) > Wall || dy < 0.0f;
+				bool isBoundary = abs(dx) > WallX || abs(dz) > WallZ || dy < 0.0f;
 
 				if (isBoundary)
 				{
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(false);
 				}
-				//else if (dy <= 0.1f && abs(dx) <= Wall && abs(dz) <= Wall)
+				//else if (dy <= 0.2f && abs(dx) <= Wall && abs(dz) <= Wall)
 				//{
 				//	pos.push_back(glm::vec3(dx, dy, dz));
 				//	isW.push_back(true);

@@ -38,7 +38,8 @@ glm::vec3 whiteCol(1.f, 1.f, 1.f);
 glm::vec3 highPres(0.7f, 0.f, 0.f);
 
 // particle setting
-float Wall = 0.5f;
+float WallX = 0.5f;
+float WallZ = 0.5f;
 float h = 0.025f;					// particle radius
 float rhoZero = 1000;				// reference density
 float m = rhoZero * 4 * PI * h * h * h / 3;	// particle mass (all particles have equal masses)
@@ -250,8 +251,8 @@ int main() {
 				glm::vec3 color;
 				if (!isWat[i])
 				{
-					if (x[i][0] > Wall) pVertex[7 * i + 6] = 0;
-					if (x[i][2] > Wall) pVertex[7 * i + 6] = 0;
+					if (x[i][0] > WallX) pVertex[7 * i + 6] = 0;
+					if (x[i][2] > WallZ) pVertex[7 * i + 6] = 0;
 					color = glm::vec3(0.2f);
 				}
 				else
@@ -291,6 +292,7 @@ int main() {
 			cout << "NeighborSearch\t:" << duration_cast<microseconds>(T2 - T1).count() << "\tmicros" << endl;
 			cout << "Predicting\t:" << duration_cast<microseconds>(T3 - T2).count() << "\tmicros" << endl;
 			cout << "Rendering\t:" << duration_cast<microseconds>(T4 - T3).count() << "\tmicros" << endl;
+			cout << "frame time\t:" << duration_cast<microseconds>(T4 - T1).count() / 1000.f << "\tms\n" << endl;
 		}
 		
 		glfwSwapBuffers(window);
