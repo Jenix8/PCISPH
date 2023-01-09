@@ -8,7 +8,9 @@ PCISPH/stb_image.cpp
 *.mp4
 *.gif
 
-*.vcxproj.*
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.users
 
 # Compiled Object files
 *.slo

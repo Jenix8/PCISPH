@@ -33,7 +33,8 @@ float lastY = HEIGHT / 2.0f;
 bool firstMouse = true;
 
 // visualizing
-glm::vec3 waterCol(0.11f, 0.64f, 0.96f);
+//glm::vec3 waterCol(0.11f, 0.64f, 0.96f);
+glm::vec3 waterCol(0.11f, 0.35f, 0.6f);
 glm::vec3 whiteCol(1.f, 1.f, 1.f);
 glm::vec3 highPres(0.7f, 0.f, 0.f);
 
@@ -87,8 +88,8 @@ int main() {
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
-	//glfwSetCursorPosCallback(window, mouse_callback);					  
-	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);		  
+	glfwSetCursorPosCallback(window, mouse_callback);					  
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);		  
 
 	glewExperimental = GL_TRUE;
 
@@ -99,10 +100,12 @@ int main() {
 	}
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
 	glEnable(GL_POINT_SPRITE);
 	glEnable(GL_POINT_SMOOTH);
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	//glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	Shader pointShader("Point.vs", "Point.fs");
 
@@ -245,7 +248,6 @@ int main() {
 				pVertex[7 * i + 0] = x[i].x;
 				pVertex[7 * i + 1] = x[i].y;
 				pVertex[7 * i + 2] = x[i].z;
-
 				pVertex[7 * i + 6] = 1;
 
 				glm::vec3 color;
@@ -257,6 +259,8 @@ int main() {
 				}
 				else
 				{
+					pVertex[7 * i + 6] = 0.7f;
+
 					if (mode == VISUAL_MODE::VELOCITY)
 					{
 						float vel = glm::length(v[i]);

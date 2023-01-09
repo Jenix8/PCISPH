@@ -11,5 +11,5 @@ void main() {
     color = aColor;
 
     gl_Position = projection * view * vec4(aPos, 1.0f);
-    gl_PointSize = 15.f -  gl_Position.z;
+    gl_PointSize = 15f -  gl_Position.z;
 }
