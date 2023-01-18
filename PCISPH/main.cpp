@@ -67,7 +67,7 @@ enum class VISUAL_MODE
 	DENSITY
 };
 
-float pVertex[700000];
+float pVertex[4000000];
 int minIterations = 3;
 float deltaTime = 1 / 400.f;
 int frame = 0;
@@ -88,8 +88,8 @@ int main() {
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);					  
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);		  
+	//glfwSetCursorPosCallback(window, mouse_callback);					  
+	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);		  
 
 	glewExperimental = GL_TRUE;
 
@@ -253,8 +253,9 @@ int main() {
 				glm::vec3 color;
 				if (!isWat[i])
 				{
-					if (x[i][0] > WallX) pVertex[7 * i + 6] = 0;
-					if (x[i][2] > WallZ) pVertex[7 * i + 6] = 0;
+					if (x[i][0] >= WallX) pVertex[7 * i + 6] = 0;
+					if (x[i][2] >= WallZ) pVertex[7 * i + 6] = 0;
+					//pVertex[7 * i + 6] = 0;
 					color = glm::vec3(0.2f);
 				}
 				else

@@ -24,22 +24,21 @@ extern float rhoZero;
 
 float W(float r)
 {
-	float hph = 2 * h;
-	float m_k = 8 / (PI * hph * hph * hph);
+	float coeff = 1 / (PI * h * h * h);
 	float res = 0.0f;
-	float q = r / hph;
+	float q = r / h;
 
-	if (q <= 1.0)
+	if (q <= 2.0)
 	{
-		if (q <= 0.5)
+		if (q <= 1.0)
 		{
 			const float q2 = q * q;
 			const float q3 = q2 * q;
-			res = m_k * (6.0f * q3 - 6.0f * q2 + 1.0f);
+			res = coeff * (1.0f - 1.5f * q2 + 0.75f * q3);
 		}
 		else
 		{
-			res = m_k * (2.0 * pow(1.0 - q, 3.0));
+			res = coeff * (0.25f * pow(2.0f - q, 3.0));
 		}
 	}
 	return res;
@@ -47,54 +46,51 @@ float W(float r)
 
 glm::vec3 gradW(glm::vec3 vdiff)
 {
-	glm::vec3 res;
-	float hph = 2 * h;
-	float m_l = 48 / (PI * hph * hph * hph);
+	glm::vec3 res(0);
+	float coeff = 1 / (PI * h * h * h);
 	const float rl = glm::length(vdiff);
-	const float q = rl / hph;
-	if ((rl > 1.0e-9) && (q <= 1.0))
+	const float q = rl / h;
+	if ((rl > 1.0e-9) && (q <= 2.0))
 	{
 		glm::vec3 gradq = vdiff / rl;
-		gradq /= hph;
+		gradq /= h;
 
-		if (q <= 0.5)
+		if (q <= 1.0)
 		{
-			res = m_l * q * (3.0f * q - 2.0f) * gradq;
+			float q2 = q * q;
+			res = coeff * (-3.0f * q + (9 / 4) * q2) * gradq;
 		}
 		else
 		{
-			const float factor = 1.0f - q;
-			res = m_l * (-factor * factor) * gradq;
+			const float factor = 2.0f - q;
+			res = coeff * (-3.0f * factor * factor / 4.0f) * gradq;
 		}
 	}
-	else
-		res = glm::vec3(0);
 
 	return res;
 };
 
 void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 {
-	int sign = -1;
 	float interval = 4 * h / 3;
 	for (float dx = -WallX - 4 * h; dx < WallX + 4 * h; dx += interval)
 		for (float dz = -WallZ - 4 * h; dz < WallZ + 4 * h; dz += interval)
 			for (float dy = -4 * h; dy < 2.f; dy += interval)
 			{
-
+	
 				bool isBoundary = abs(dx) > WallX || abs(dz) > WallZ || dy < 0.0f;
-
+	
 				if (isBoundary)
 				{
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(false);
 				}
-				//else if (dy <= 0.2f && abs(dx) <= Wall && abs(dz) <= Wall)
+				//else if (dy <= 0.2f && abs(dx) <= WallX && abs(dz) <= WallZ)
 				//{
 				//	pos.push_back(glm::vec3(dx, dy, dz));
 				//	isW.push_back(true);
 				//}
-				//else if (dy >= 0.7f && dy <= 1.5f && abs(dx) <= 0.3f && abs(dz) <= 0.3f)
+				//else if (dy >= 0.5f && dy <= 1.5f && abs(dx) <= 0.2f && abs(dz) <= 0.2f)
 				//{
 				//	pos.push_back(glm::vec3(dx, dy, dz));
 				//	isW.push_back(true);
@@ -104,6 +100,11 @@ void initialize(std::vector<glm::vec3>& pos, std::vector<bool>& isW)
 					pos.push_back(glm::vec3(dx, dy, dz));
 					isW.push_back(true);
 				}
+				//else if (dx + dy - dz <= 0.2f)
+				//{
+				//	pos.push_back(glm::vec3(dx, dy, dz));
+				//	isW.push_back(true);
+				//}
 			}
 }
 
@@ -121,11 +122,11 @@ float predictDensity(int i, std::vector<glm::vec3>& pos, unsigned int psID, Poin
 	float rho = 0.0f;
 	glm::vec3 iPos = pos[i];
 
-	#pragma omp parallel
-	for (unsigned int j = 0; j < ps.n_neighbors(psID, i); j++)
+	#pragma omp parallel for
+	for (int j = 0; j < ps.n_neighbors(psID, i); j++)
 	{
 		int n = ps.neighbor(psID, i, j);
-		if (i == n) continue;
+		//if (i == n) continue;
 
 		glm::vec3 nPos = pos[n];
 		float dist = glm::length(iPos - nPos);
@@ -139,11 +140,11 @@ glm::vec3 CalcPressForce(int i, unsigned int psID, PointSet const& ps, std::vect
 {
 	glm::vec3 totalFpi(0);
 
-	#pragma omp parallel
-	for (unsigned int j = 0; j < ps.n_neighbors(psID, i); j++)
+	#pragma omp parallel for
+	for (int j = 0; j < ps.n_neighbors(psID, i); j++)
 	{
 		int n = ps.neighbor(psID, i, j);
-		if (i == n) continue;
+		//if (i == n) continue;
 
 		glm::vec3 nablaW = gradW(pos[i] - pos[n]);
 
@@ -162,3 +163,54 @@ glm::vec3 CalcPressForce(int i, unsigned int psID, PointSet const& ps, std::vect
 
 	return totalFpi;
 }
+
+//float W(float r)
+//{
+//	float hph = 2 * h;
+//	float m_k = 8 / (PI * hph * hph * hph);
+//	float res = 0.0f;
+//	float q = r / hph;
+//
+//	if (q <= 1.0)
+//	{
+//		if (q <= 0.5)
+//		{
+//			const float q2 = q * q;
+//			const float q3 = q2 * q;
+//			res = m_k * (6.0f * q3 - 6.0f * q2 + 1.0f);
+//		}
+//		else
+//		{
+//			res = m_k * (2.0 * pow(1.0 - q, 3.0));
+//		}
+//	}
+//	return res;
+//}
+//
+//glm::vec3 gradW(glm::vec3 vdiff)
+//{
+//	glm::vec3 res;
+//	float hph = 2 * h;
+//	float m_l = 48 / (PI * hph * hph * hph);
+//	const float rl = glm::length(vdiff);
+//	const float q = rl / hph;
+//	if ((rl > 1.0e-9) && (q <= 1.0))
+//	{
+//		glm::vec3 gradq = vdiff / rl;
+//		gradq /= hph;
+//
+//		if (q <= 0.5)
+//		{
+//			res = m_l * q * (3.0f * q - 2.0f) * gradq;
+//		}
+//		else
+//		{
+//			const float factor = 1.0f - q;
+//			res = m_l * (-factor * factor) * gradq;
+//		}
+//	}
+//	else
+//		res = glm::vec3(0);
+//
+//	return res;
+//};
